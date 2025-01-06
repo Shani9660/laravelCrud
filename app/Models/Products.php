@@ -12,8 +12,8 @@ class Products extends Model
         'subcategory',
         'cost',
         'price',
-        'image'
+        'attachment_id'
     ];
 
-    
+
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Attachment;
 use App\Models\Products;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,14 +15,7 @@ class ProductsController extends Controller
      */
     public function index()
     {
-    //     $products = DB::select("
-    //     SELECT products.*, categories.name as category_name
-    //                categories.name as subcategory_name,
-    //     FROM products
-    //     JOIN categories ON products.category = categories.id
-    //     INNER JOIN categories ON products.category = categories.id
 
-    // ");
     $products = DB::table('products')
     ->select(
         'products.*',
@@ -29,10 +23,6 @@ class ProductsController extends Controller
         DB::raw('(SELECT name FROM categories WHERE id = products.subcategory) AS subcategory_name')
     )
     ->get();
-    //  echo "<pre>";
-    //  print_r($products);
-    //  die;
-       // $products = Products::all();
         return view('product.index', compact('products'));
     }
 
@@ -51,29 +41,47 @@ class ProductsController extends Controller
     {
         // Validate the request
         $validated = $request->validate([
-
             'productname' => 'required',
             'category' => 'required',
             'subcategory' => 'required',
-            'cost' => 'required|',
-            'price' => 'required|',
+            'cost' => 'required',
+            'price' => 'required',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5000',
         ]);
+        $file=$request->file('image');
+        $attachment = "";
+        if(!empty($file) && $file !== ""){
+            $path = public_path()."/product_image/";
+            $imagename = "product_image_".time(). "_".$file->getClientOriginalName();
+            $imgext = $file->getClientOriginalExtension();
+            $fullpath = $file->move($path, $imagename);
 
-        // Handle image upload
-        $imagePath = null;
-        if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('products', 'public');
+            if($fullpath){
+                $attachment = Attachment::create([
+                    "original_name"=>$file->getClientOriginalName(),
+                    "stored_name"=>$imagename,
+                    "folder_name"=>"product_image",
+                    "attachmentable_type"=>$imgext
+                ]);
+
+            }
         }
+        // Handle image upload
+        // $imagePath = null;
+        // if ($request->hasFile('image')) {
+        //     $imagePath = $request->file('image')->store('products', 'public');
+
+        // }
 
         // Create the product
+         $id = isset($attachment->id) ?? $attachment->id;
         Products::create([
             'productname' => $request->productname,
             'category' => $request->category,
             'subcategory' => $request->subcategory,
             'cost' => $request->cost,
             'price' => $request->price,
-            'image' => $imagePath,
+            'attachment_id' => $id,
         ]);
 
         return redirect()->route('product.index')->with('success', 'Product created successfully!');
@@ -104,36 +112,56 @@ class ProductsController extends Controller
     {
         $product = Products::findOrFail($id);
 
-
         $validated = $request->validate([
             'productname' => 'required',
             'category' => 'required',
             'subcategory' => 'required',
             'cost' => 'required|numeric',
             'price' => 'required|numeric',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5048',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif',
         ]);
 
 
-        if ($request->hasFile('image')) {
+        $file=$request->file('image');
+        $attachment = "";
 
-            if ($product->image) {
-                Storage::delete('public/' . $product->image);
+        if(!empty($file) && $file !== ""){
+            $path = public_path()."/product_image/";
+
+            $adata = Attachment::find($product->attachment_id);
+            if (!empty($adata)) {
+                $pdataname = $adata->stored_name ?? "";
+                if($pdataname !==""){
+                $fdata = public_path() . "/product_image/" . $pdataname;
+                if (file_exists($fdata)) {
+                    unlink($fdata);
+                }
+                    $adata->delete();
+                }
             }
 
+            $imagename = "product_image_".time(). "_".$file->getClientOriginalName();
+            $imgext = $file->getClientOriginalExtension();
+            $fullpath = $file->move($path, $imagename);
 
-            $imagePath = $request->file('image')->store('products', 'public');
-            $product->image = $imagePath;
+            if($fullpath){
+                $attachment = Attachment::create([
+                    "original_name"=>$file->getClientOriginalName(),
+                    "stored_name"=>$imagename,
+                    "folder_name"=>"product_image",
+                    "attachmentable_type"=>$imgext
+                ]);
+            }
         }
 
-
+        $id = $attachment->id ?? $attachment->id;
         $product->update([
             'productname' => $request->productname,
             'category' => $request->category,
             'subcategory' => $request->subcategory,
             'cost' => $request->cost,
             'price' => $request->price,
-            'image' => $product->image,
+            'attachment_id' => $id
         ]);
 
         return redirect()->route('product.index')->with('success', 'Product updated successfully!');

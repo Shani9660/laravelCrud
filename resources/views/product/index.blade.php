@@ -29,8 +29,16 @@
             <td>{{ $row->cost }}</td>
             <td>{{ $row->price }}</td>
             <td>
-                @if($row->image)
-                    <img src="{{ asset('storage/' . $row->image) }}" alt="Product Image" style="width:70px">
+                @php
+                $image = \App\Models\Attachment::where('id', $row->attachment_id)->first();
+                $data = $image ? $image : "";
+                @endphp
+                @if($row->attachment_id)
+                   @if (isset($image->stored_name))
+                   <img src="{{ asset('/product_image/' . $image->stored_name) }}" alt="Product Image" style="width:70px">
+                   @else
+                   <span>No Image</span>
+                   @endif
                 @else
                     <span>No Image</span>
                 @endif
